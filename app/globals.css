@@ -1,0 +1,11 @@
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+body {
+  @apply bg-black text-white min-h-screen;
+  background: radial-gradient(circle at 20% 20%, #7c3aed40, transparent 40%),
+              radial-gradient(circle at 80% 80%, #06b6d440, transparent 40%),
+              #000;
+}
