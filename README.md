@@ -16,6 +16,4 @@ Setup:
 4. Add env vars in Vercel
 5. Deploy
 
-Environment Variables:
-NEXT_PUBLIC_SUPABASE_URL=https://dwnxyvlkfshewtivemcr.supabase.co
-NEXT_PUBLIC_SUPABASE_ANON_KEY=eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6ImR3bnh5dmxrZnNoZXd0aXZlbWNyIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzA5MDg0MzQsImV4cCI6MjA4NjQ4NDQzNH0.5B5XD-ymPsI8H8jPwBdWsNeJDjK0tKE16wcMXsRmrxs
+
