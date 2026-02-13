@@ -8,6 +8,7 @@ const categories = ['All', 'Work', 'Shopping', 'Learning', 'Social', 'General']
 
 export default function Home() {
   const [session, setSession] = useState<any>(null)
+  const [loading, setLoading] = useState(true)
   const [bookmarks, setBookmarks] = useState<any[]>([])
   const [url, setUrl] = useState('')
   const [title, setTitle] = useState('')
@@ -18,13 +19,20 @@ export default function Home() {
 
   // ---------------- AUTH ----------------
   useEffect(() => {
-    supabase.auth.getSession().then(({ data }) => {
+    const init = async () => {
+      const { data } = await supabase.auth.getSession()
       setSession(data.session)
-    })
+      setLoading(false)
+    }
 
-    const { data: listener } = supabase.auth.onAuthStateChange((_e, s) => {
-      setSession(s)
-    })
+    init()
+
+    const { data: listener } = supabase.auth.onAuthStateChange(
+      (_event, session) => {
+        setSession(session)
+        setLoading(false)
+      }
+    )
 
     return () => {
       listener.subscription.unsubscribe()
@@ -60,6 +68,7 @@ export default function Home() {
     const { data } = await supabase
       .from('bookmarks')
       .select('*')
+      .eq('user_id', session?.user?.id)
       .order('created_at', { ascending: false })
 
     setBookmarks(data || [])
@@ -67,7 +76,7 @@ export default function Home() {
 
   // ---------------- ADD ----------------
   async function addBookmark() {
-    if (!url || !title) return
+    if (!url || !title || !session) return
 
     let formattedUrl = url
     if (!formattedUrl.startsWith('http')) {
@@ -114,26 +123,37 @@ export default function Home() {
     })
   }, [bookmarks, search, activeCategory])
 
+  // ---------------- LOADING SCREEN ----------------
+  if (loading) {
+    return (
+      <div className="min-h-screen flex items-center justify-center text-white text-lg">
+        Loading...
+      </div>
+    )
+  }
+
   // ---------------- LOGIN SCREEN ----------------
   if (!session) {
     return (
       <motion.div
         initial={{ opacity: 0, y: 30 }}
         animate={{ opacity: 1, y: 0 }}
-        className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-3xl shadow-2xl text-center"
+        className="min-h-screen flex items-center justify-center"
       >
-        <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
-          Smart Bookmark
-        </h1>
+        <div className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-3xl shadow-2xl text-center">
+          <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+            Smart Bookmark
+          </h1>
 
-        <button
-          onClick={() =>
-            supabase.auth.signInWithOAuth({ provider: 'google' })
-          }
-          className="bg-gradient-to-r from-primary to-accent px-6 py-3 rounded-xl font-semibold hover:scale-105 transition"
-        >
-          Continue with Google
-        </button>
+          <button
+            onClick={() =>
+              supabase.auth.signInWithOAuth({ provider: 'google' })
+            }
+            className="bg-gradient-to-r from-primary to-accent px-6 py-3 rounded-xl font-semibold hover:scale-105 transition"
+          >
+            Continue with Google
+          </button>
+        </div>
       </motion.div>
     )
   }
@@ -143,132 +163,130 @@ export default function Home() {
     <motion.div
       initial={{ opacity: 0, y: 20 }}
       animate={{ opacity: 1, y: 0 }}
-      className="w-full max-w-4xl bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl shadow-2xl"
+      className="min-h-screen flex items-center justify-center p-6"
     >
-      <div className="flex justify-between items-center mb-8">
-        <h2 className="text-3xl font-bold">Your Bookmarks</h2>
-        <button
-          onClick={() => supabase.auth.signOut()}
-          className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition"
-        >
-          Logout
-        </button>
-      </div>
-
-      {/* SEARCH */}
-      <input
-        placeholder="Search bookmarks..."
-        value={search}
-        onChange={(e) => setSearch(e.target.value)}
-        className="w-full mb-6 bg-white/10 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent"
-      />
-
-      {/* CATEGORY FILTER */}
-      <div className="flex gap-3 flex-wrap mb-6">
-        {categories.map((cat) => (
+      <div className="w-full max-w-4xl bg-white/5 backdrop-blur-xl border border-white/10 p-10 rounded-3xl shadow-2xl">
+        <div className="flex justify-between items-center mb-8">
+          <h2 className="text-3xl font-bold">Your Bookmarks</h2>
           <button
-            key={cat}
-            onClick={() => setActiveCategory(cat)}
-            className={`px-4 py-2 rounded-xl text-sm ${
-              activeCategory === cat
-                ? 'bg-gradient-to-r from-primary to-accent'
-                : 'bg-white/10'
-            }`}
+            onClick={() => supabase.auth.signOut()}
+            className="px-4 py-2 bg-white/10 rounded-lg hover:bg-white/20 transition"
           >
-            {cat}
+            Logout
           </button>
-        ))}
-      </div>
-
-      {/* ADD FORM */}
-      <div className="grid md:grid-cols-4 gap-4 mb-8">
-        <input
-          value={title}
-          onChange={(e) => setTitle(e.target.value)}
-          placeholder="Title"
-          className="bg-white/10 p-3 rounded-xl"
-        />
-
-        <input
-          value={url}
-          onChange={(e) => setUrl(e.target.value)}
-          placeholder="URL"
-          className="bg-white/10 p-3 rounded-xl"
-        />
-
-        {/* DARK DROPDOWN */}
-        <div className="relative">
-          <button
-            type="button"
-            onClick={() => setShowCategoryMenu(!showCategoryMenu)}
-            className="w-full bg-white/10 p-3 rounded-xl text-left text-white border border-white/10 flex justify-between items-center"
-          >
-            <span>{category}</span>
-            <span
-              className={`transition-transform ${
-                showCategoryMenu ? 'rotate-180' : ''
-              }`}
-            >
-              ▼
-            </span>
-          </button>
-
-          {showCategoryMenu && (
-            <div className="absolute z-50 mt-2 w-full bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl overflow-hidden">
-              {categories
-                .filter((c) => c !== 'All')
-                .map((cat) => (
-                  <div
-                    key={cat}
-                    onClick={() => {
-                      setCategory(cat)
-                      setShowCategoryMenu(false)
-                    }}
-                    className="p-3 text-white hover:bg-white/10 cursor-pointer transition"
-                  >
-                    {cat}
-                  </div>
-                ))}
-            </div>
-          )}
         </div>
 
-        <button
-          onClick={addBookmark}
-          className="bg-gradient-to-r from-primary to-accent rounded-xl font-semibold"
-        >
-          Add
-        </button>
-      </div>
+        {/* SEARCH */}
+        <input
+          placeholder="Search bookmarks..."
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          className="w-full mb-6 bg-white/10 p-3 rounded-xl focus:outline-none focus:ring-2 focus:ring-accent"
+        />
 
-      {/* LIST */}
-      <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
-        {filteredBookmarks.map((bm) => (
-          <motion.div
-            key={bm.id}
-            whileHover={{ scale: 1.02 }}
-            className="flex justify-between items-center bg-white/10 p-4 rounded-xl"
-          >
-            <div>
-              <a
-                href={bm.url}
-                target="_blank"
-                rel="noopener noreferrer"
-                className="font-medium text-accent"
-              >
-                {bm.title}
-              </a>
-              <p className="text-xs text-gray-400">{bm.category}</p>
-            </div>
-
+        {/* CATEGORY FILTER */}
+        <div className="flex gap-3 flex-wrap mb-6">
+          {categories.map((cat) => (
             <button
-              onClick={() => deleteBookmark(bm.id)}
-              className="text-red-400"
+              key={cat}
+              onClick={() => setActiveCategory(cat)}
+              className={`px-4 py-2 rounded-xl text-sm ${
+                activeCategory === cat
+                  ? 'bg-gradient-to-r from-primary to-accent'
+                  : 'bg-white/10'
+              }`}
             >
-              ✕
+              {cat}
             </button>
-          </motion.div>
-        ))}
+          ))}
+        </div>
+
+        {/* ADD FORM */}
+        <div className="grid md:grid-cols-4 gap-4 mb-8">
+          <input
+            value={title}
+            onChange={(e) => setTitle(e.target.value)}
+            placeholder="Title"
+            className="bg-white/10 p-3 rounded-xl"
+          />
+
+          <input
+            value={url}
+            onChange={(e) => setUrl(e.target.value)}
+            placeholder="URL"
+            className="bg-white/10 p-3 rounded-xl"
+          />
+
+          {/* DARK DROPDOWN */}
+          <div className="relative">
+            <button
+              type="button"
+              onClick={() => setShowCategoryMenu(!showCategoryMenu)}
+              className="w-full bg-white/10 p-3 rounded-xl text-left text-white border border-white/10 flex justify-between items-center"
+            >
+              <span>{category}</span>
+              <span className={`transition-transform ${showCategoryMenu ? 'rotate-180' : ''}`}>
+                ▼
+              </span>
+            </button>
+
+            {showCategoryMenu && (
+              <div className="absolute z-50 mt-2 w-full bg-black/90 backdrop-blur-xl border border-white/10 rounded-xl shadow-xl overflow-hidden">
+                {categories
+                  .filter((c) => c !== 'All')
+                  .map((cat) => (
+                    <div
+                      key={cat}
+                      onClick={() => {
+                        setCategory(cat)
+                        setShowCategoryMenu(false)
+                      }}
+                      className="p-3 text-white hover:bg-white/10 cursor-pointer transition"
+                    >
+                      {cat}
+                    </div>
+                  ))}
+              </div>
+            )}
+          </div>
+
+          <button
+            onClick={addBookmark}
+            className="bg-gradient-to-r from-primary to-accent rounded-xl font-semibold"
+          >
+            Add
+          </button>
+        </div>
+
+        {/* LIST */}
+        <div className="space-y-4 max-h-96 overflow-y-auto pr-2">
+          {filteredBookmarks.map((bm) => (
+            <motion.div
+              key={bm.id}
+              whileHover={{ scale: 1.02 }}
+              className="flex justify-between items-center bg-white/10 p-4 rounded-xl"
+            >
+              <div>
+                <a
+                  href={bm.url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="font-medium text-accent"
+                >
+                  {bm.title}
+                </a>
+                <p className="text-xs text-gray-400">{bm.category}</p>
+              </div>
+
+              <button
+                onClick={() => deleteBookmark(bm.id)}
+                className="text-red-400"
+              >
+                ✕
+              </button>
+            </motion.div>
+          ))}
+        </div>
       </div>
     </motion.div>
   )
