@@ -26,31 +26,33 @@ export default function Home() {
       setSession(s)
     })
 
-    return () => listener.subscription.unsubscribe()
+    return () => {
+      listener.subscription.unsubscribe()
+    }
   }, [])
 
   // ---------------- REALTIME ----------------
   useEffect(() => {
-    if (session) {
-      fetchBookmarks()
+    if (!session) return
 
-      const channel = supabase
-        .channel('realtime-bookmarks')
-        .on(
-          'postgres_changes',
-          {
-            event: '*',
-            schema: 'public',
-            table: 'bookmarks',
-            filter: `user_id=eq.${session.user.id}`,
-          },
-          fetchBookmarks
-        )
-        .subscribe()
+    fetchBookmarks()
 
-      return () =>{ 
-        supabase.removeChannel(channel)
-      }
+    const channel = supabase
+      .channel('realtime-bookmarks')
+      .on(
+        'postgres_changes',
+        {
+          event: '*',
+          schema: 'public',
+          table: 'bookmarks',
+          filter: `user_id=eq.${session.user.id}`,
+        },
+        () => fetchBookmarks()
+      )
+      .subscribe()
+
+    return () => {
+      supabase.removeChannel(channel)
     }
   }, [session])
 
@@ -103,7 +105,7 @@ export default function Home() {
   const filteredBookmarks = useMemo(() => {
     return bookmarks.filter((bm) => {
       const matchesSearch =
-        bm.title.toLowerCase().includes(search.toLowerCase())
+        bm.title?.toLowerCase().includes(search.toLowerCase())
 
       const matchesCategory =
         activeCategory === 'All' || bm.category === activeCategory
@@ -112,8 +114,31 @@ export default function Home() {
     })
   }, [bookmarks, search, activeCategory])
 
-  if (!session) return null
+  // ---------------- LOGIN SCREEN ----------------
+  if (!session) {
+    return (
+      <motion.div
+        initial={{ opacity: 0, y: 30 }}
+        animate={{ opacity: 1, y: 0 }}
+        className="w-full max-w-md bg-white/5 backdrop-blur-xl border border-white/10 p-12 rounded-3xl shadow-2xl text-center"
+      >
+        <h1 className="text-4xl font-bold mb-6 bg-gradient-to-r from-primary to-accent bg-clip-text text-transparent">
+          Smart Bookmark
+        </h1>
 
+        <button
+          onClick={() =>
+            supabase.auth.signInWithOAuth({ provider: 'google' })
+          }
+          className="bg-gradient-to-r from-primary to-accent px-6 py-3 rounded-xl font-semibold hover:scale-105 transition"
+        >
+          Continue with Google
+        </button>
+      </motion.div>
+    )
+  }
+
+  // ---------------- MAIN UI ----------------
   return (
     <motion.div
       initial={{ opacity: 0, y: 20 }}
@@ -171,7 +196,7 @@ export default function Home() {
           className="bg-white/10 p-3 rounded-xl"
         />
 
-        {/* CUSTOM DARK DROPDOWN */}
+        {/* DARK DROPDOWN */}
         <div className="relative">
           <button
             type="button"
